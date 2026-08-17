@@ -1,12 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, RefreshCw, FolderPlus, Shield, UserCheck } from 'lucide-react';
+import { Plus, Edit2, Trash2, RefreshCw, FolderPlus, Shield, LogOut } from 'lucide-react';
 import AdminSidebar, { AdminTab } from '../components/AdminSidebar';
 import DedicatedRichEditorialWindow from '../components/DedicatedRichEditorialWindow';
+import AdminLoginForm from '../components/AdminLoginForm';
 import { supabase } from '../lib/supabaseClient';
 
 export default function AdminPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [authChecking, setAuthChecking] = useState<boolean>(true);
+
   const [activeTab, setActiveTab] = useState<AdminTab>('resources');
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -23,6 +29,49 @@ export default function AdminPage() {
     software: 'software_tools',
     announcements: 'announcements',
     users: 'profiles',
+  };
+
+  // Check auth & role on load
+  const verifyAdminAuth = async () => {
+    setAuthChecking(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setIsAuthenticated(false);
+        setAuthChecking(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      const allowedRoles = ['superadmin', 'editor', 'admin'];
+      if (profile && allowedRoles.includes(profile.role)) {
+        setIsAuthenticated(true);
+        setUserRole(profile.role);
+        setUserEmail(session.user.email || 'Admin User');
+      } else {
+        await supabase.auth.signOut();
+        setIsAuthenticated(false);
+      }
+    } catch {
+      setIsAuthenticated(false);
+    } finally {
+      setAuthChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    verifyAdminAuth();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setIsAuthenticated(false);
+    setUserRole(null);
   };
 
   const fetchRecords = async () => {
@@ -54,9 +103,11 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    fetchRecords();
-    setViewMode('list');
-  }, [activeTab]);
+    if (isAuthenticated) {
+      fetchRecords();
+      setViewMode('list');
+    }
+  }, [activeTab, isAuthenticated]);
 
   const handleCreateNew = () => {
     setEditingItem(null);
@@ -108,13 +159,25 @@ export default function AdminPage() {
     fetchRecords();
   };
 
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-[#FCFCF9] dark:bg-[#121212] flex items-center justify-center font-mono text-xs text-stone-500">
+        Verifying Admin Credentials &amp; Role Permissions...
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <AdminLoginForm onLoginSuccess={verifyAdminAuth} />;
+  }
+
   const sectionTitles: Record<AdminTab, string> = {
     resources: 'Technical Resources & Specifications',
     projects: 'Engineering Projects & Repositories',
-    research: 'Peer-Reviewed Research Papers (No Chapters)',
+    research: 'Peer-Reviewed Research Papers',
     software: 'Software Utilities, Installer Links & Patch Notes',
     announcements: 'Admin Bulletins & System Notices',
-    users: 'Registered User Accounts & Access Control Roles',
+    users: 'User & Role Access Management (Superadmin Only)',
   };
 
   return (
@@ -135,8 +198,11 @@ export default function AdminPage() {
           <>
             <header className="border-b border-stone-300 dark:border-stone-800 pb-6 mb-8 flex flex-wrap items-center justify-between gap-4">
               <div>
-                <div className="text-xs font-mono text-stone-500 uppercase mb-1">
-                  SUPABASE POSTGRESQL ARCHIVE / {activeTab.toUpperCase()}
+                <div className="text-xs font-mono text-stone-500 uppercase mb-1 flex items-center gap-2">
+                  <span>SUPABASE POSTGRESQL ARCHIVE / {activeTab.toUpperCase()}</span>
+                  <span>•</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400">ROLE: {userRole?.toUpperCase()}</span>
+                  <span>({userEmail})</span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-black dark:text-white">
                   {sectionTitles[activeTab]}
@@ -161,6 +227,15 @@ export default function AdminPage() {
                     <span>Open {activeTab.slice(0, -1).toUpperCase()} Editorial Window</span>
                   </button>
                 )}
+
+                <button
+                  onClick={handleLogout}
+                  title="Sign Out of Admin Portal"
+                  className="flex items-center gap-1.5 px-3 py-2 border border-red-300 dark:border-red-900 text-red-600 dark:text-red-400 font-mono text-xs rounded hover:bg-red-50 dark:hover:bg-red-950 font-bold"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout</span>
+                </button>
               </div>
             </header>
 
@@ -212,23 +287,29 @@ export default function AdminPage() {
                           </div>
                         </div>
 
-                        {/* Role Change Selector */}
-                        <div className="flex items-center gap-2 self-end md:self-center font-mono text-xs">
-                          <Shield className="w-4 h-4 text-stone-500" />
-                          <label className="text-stone-500">Assign Role:</label>
-                          <select
-                            value={user.role || 'normal'}
-                            onChange={(e) => handleUserRoleChange(user.id, e.target.value)}
-                            className="p-1.5 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white rounded font-bold uppercase"
-                          >
-                            <option value="normal">Normal User</option>
-                            <option value="editor">Editor</option>
-                            <option value="superadmin">Superadmin</option>
-                            <option value="student">Student</option>
-                            <option value="faculty">Faculty</option>
-                            <option value="guest">Guest</option>
-                          </select>
-                        </div>
+                        {/* Role Change Selector (Superadmin Only) */}
+                        {userRole === 'superadmin' || userRole === 'admin' ? (
+                          <div className="flex items-center gap-2 self-end md:self-center font-mono text-xs">
+                            <Shield className="w-4 h-4 text-stone-500" />
+                            <label className="text-stone-500">Assign Role:</label>
+                            <select
+                              value={user.role || 'normal'}
+                              onChange={(e) => handleUserRoleChange(user.id, e.target.value)}
+                              className="p-1.5 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white rounded font-bold uppercase"
+                            >
+                              <option value="normal">Normal User</option>
+                              <option value="editor">Editor</option>
+                              <option value="superadmin">Superadmin</option>
+                              <option value="student">Student</option>
+                              <option value="faculty">Faculty</option>
+                              <option value="guest">Guest</option>
+                            </select>
+                          </div>
+                        ) : (
+                          <div className="text-xs font-mono text-stone-400 italic">
+                            [Role editing requires Superadmin]
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
@@ -283,7 +364,7 @@ export default function AdminPage() {
                         </div>
                       </div>
 
-                      {/* Two Action Buttons: Edit and Delete */}
+                      {/* Action Buttons */}
                       <div className="flex items-center gap-2 self-end md:self-center">
                         <button
                           onClick={() => handleEdit(item)}
