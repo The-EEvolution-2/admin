@@ -44,12 +44,14 @@ export default function AdminPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, is_admin')
         .eq('id', session.user.id)
         .single();
 
-      const allowedRoles = ['superadmin', 'editor', 'admin'];
-      if (profile && allowedRoles.includes(profile.role)) {
+      const isAllowedRole = ['superadmin', 'editor', 'admin', 'faculty'].includes(profile?.role);
+      const isStudentAdmin = profile?.role === 'student' && profile?.is_admin === true;
+
+      if (profile && (isAllowedRole || isStudentAdmin)) {
         setIsAuthenticated(true);
         setUserRole(profile.role);
         setUserEmail(session.user.email || 'Admin User');
@@ -154,6 +156,23 @@ export default function AdminPage() {
     }
   };
 
+  const handleUserAdminToggle = async (userId: string, currentIsAdmin: boolean) => {
+    try {
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ is_admin: !currentIsAdmin })
+        .eq('id', userId);
+
+      if (updateErr) throw updateErr;
+
+      setRecords((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, is_admin: !currentIsAdmin } : u))
+      );
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Error updating user admin status');
+    }
+  };
+
   const handleSaveSuccess = () => {
     setViewMode('list');
     fetchRecords();
@@ -181,7 +200,7 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#FCFCF9] dark:bg-[#121212] text-stone-900 dark:text-stone-100 font-serif">
+    <div className="flex min-h-screen bg-[#FCFCF9] dark:bg-[#121212] text-stone-900 dark:text-stone-100 font-sans">
       {/* Sidebar with Navigation Options */}
       <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -250,10 +269,10 @@ export default function AdminPage() {
               </div>
             ) : activeTab === 'users' ? (
               /* DEDICATED USERS MANAGEMENT TABLE */
-              <div className="space-y-4 font-serif">
+              <div className="space-y-4 font-sans">
                 <div className="flex items-center justify-between text-xs font-mono text-stone-500 border-b border-stone-200 dark:border-stone-800 pb-2">
                   <span>REGISTERED USERS: [{records.length} USERS]</span>
-                  <span>ROLES: SUPERADMIN / EDITOR / NORMAL</span>
+                  <span>ROLES: SUPERADMIN / FACULTY / STUDENT ADMIN / EDITOR</span>
                 </div>
 
                 <div className="divide-y divide-stone-200 dark:divide-stone-800 border border-stone-300 dark:border-stone-800 rounded bg-[#FCFCF9] dark:bg-[#161616]">
@@ -277,6 +296,7 @@ export default function AdminPage() {
 
                           <div className="text-xs text-stone-600 dark:text-stone-400 font-mono flex flex-wrap gap-3">
                             <span>Role: <strong className="uppercase text-blue-900 dark:text-blue-400">{user.role || 'normal'}</strong></span>
+                            {user.is_admin && <span className="font-bold text-emerald-600 dark:text-emerald-400">[ADMIN ACCESS ENABLED]</span>}
                             {user.roll_number && <span>Roll: {user.roll_number}</span>}
                             {user.batch_year && <span>Batch: {user.batch_year} (Group {user.batch_group || '1'})</span>}
                             {user.mobile_no && <span>Mobile: {user.mobile_no}</span>}
@@ -287,23 +307,35 @@ export default function AdminPage() {
                           </div>
                         </div>
 
-                        {/* Role Change Selector (Superadmin Only) */}
+                        {/* Role & Admin Toggle Selectors (Superadmin Only) */}
                         {userRole === 'superadmin' || userRole === 'admin' ? (
-                          <div className="flex items-center gap-2 self-end md:self-center font-mono text-xs">
-                            <Shield className="w-4 h-4 text-stone-500" />
-                            <label className="text-stone-500">Assign Role:</label>
-                            <select
-                              value={user.role || 'normal'}
-                              onChange={(e) => handleUserRoleChange(user.id, e.target.value)}
-                              className="p-1.5 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white rounded font-bold uppercase"
+                          <div className="flex flex-wrap items-center gap-3 self-end md:self-center font-mono text-xs">
+                            <button
+                              onClick={() => handleUserAdminToggle(user.id, user.is_admin || false)}
+                              className={`px-2.5 py-1 border rounded font-bold uppercase ${
+                                user.is_admin
+                                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
+                                  : 'border-stone-300 text-stone-600 dark:border-stone-700 dark:text-stone-400'
+                              }`}
                             >
-                              <option value="normal">Normal User</option>
-                              <option value="editor">Editor</option>
-                              <option value="superadmin">Superadmin</option>
-                              <option value="student">Student</option>
-                              <option value="faculty">Faculty</option>
-                              <option value="guest">Guest</option>
-                            </select>
+                              {user.is_admin ? 'Admin: ON' : 'Admin: OFF'}
+                            </button>
+
+                            <div className="flex items-center gap-1.5">
+                              <Shield className="w-4 h-4 text-stone-500" />
+                              <select
+                                value={user.role || 'normal'}
+                                onChange={(e) => handleUserRoleChange(user.id, e.target.value)}
+                                className="p-1.5 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-black dark:text-white rounded font-bold uppercase"
+                              >
+                                <option value="normal">Normal User</option>
+                                <option value="student">Student</option>
+                                <option value="faculty">Faculty</option>
+                                <option value="editor">Editor</option>
+                                <option value="superadmin">Superadmin</option>
+                                <option value="guest">Guest</option>
+                              </select>
+                            </div>
                           </div>
                         ) : (
                           <div className="text-xs font-mono text-stone-400 italic">
@@ -333,7 +365,7 @@ export default function AdminPage() {
                 </button>
               </div>
             ) : (
-              <div className="space-y-4 font-serif">
+              <div className="space-y-4 font-sans">
                 <div className="flex items-center justify-between text-xs font-mono text-stone-500 border-b border-stone-200 dark:border-stone-800 pb-2">
                   <span>CURRENT AVAILABLE DATA: [{records.length} ENTRIES]</span>
                   <span>ACTIONS: EDIT &amp; DELETE</span>
