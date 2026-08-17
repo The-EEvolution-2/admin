@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Database, RefreshCw, FolderPlus } from 'lucide-react';
 import ResourceFormModal, { ResourceItem } from '../components/ResourceFormModal';
-
-const API_BASE = 'http://localhost:5000/api/resources';
+import { supabase } from '../lib/supabaseClient';
 
 export default function AdminPage() {
   const [resources, setResources] = useState<ResourceItem[]>([]);
@@ -18,12 +17,34 @@ export default function AdminPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(API_BASE);
-      if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
-      const data = await res.json();
-      setResources(data);
+      const { data, error: sbError } = await supabase
+        .from('resources')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (sbError) throw sbError;
+
+      const formatted = (data || []).map((item) => ({
+        id: item.id,
+        _id: item.id,
+        title: item.title,
+        description: item.description,
+        category: item.category,
+        categorySlug: item.category_slug,
+        categoryLabel: item.category_label,
+        topicSlug: item.topic_slug,
+        topicLabel: item.topic_label,
+        author: item.author,
+        date: new Date(item.created_at).toISOString().split('T')[0],
+        url: '#',
+        fileSize: item.file_size,
+        difficulty: item.difficulty,
+        contentBody: item.content_body,
+      }));
+
+      setResources(formatted);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch database records';
+      const msg = err instanceof Error ? err.message : 'Failed to fetch Supabase records';
       setError(msg);
     } finally {
       setLoading(false);
@@ -46,12 +67,17 @@ export default function AdminPage() {
 
   const handleDelete = async (id?: string) => {
     if (!id) return;
-    if (!confirm('Are you sure you want to delete this resource entry from the MongoDB database?')) return;
+    if (!confirm('Are you sure you want to delete this resource entry from Supabase PostgreSQL?')) return;
 
     try {
-      const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Delete failed');
-      setResources((prev) => prev.filter((r) => (r._id || r.id) !== id));
+      const { error: delError } = await supabase
+        .from('resources')
+        .delete()
+        .eq('id', id);
+
+      if (delError) throw delError;
+
+      setResources((prev) => prev.filter((r) => r.id !== id));
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Error deleting resource');
     }
@@ -59,18 +85,38 @@ export default function AdminPage() {
 
   const handleFormSubmit = async (data: Partial<ResourceItem>) => {
     try {
-      const isEdit = Boolean(editingItem && (editingItem._id || editingItem.id));
-      const targetId = editingItem?._id || editingItem?.id;
-      const url = isEdit ? `${API_BASE}/${targetId}` : API_BASE;
-      const method = isEdit ? 'PUT' : 'POST';
+      const isEdit = Boolean(editingItem && editingItem.id);
+      const targetId = editingItem?.id;
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
+      const payload = {
+        title: data.title,
+        description: data.description,
+        category: data.categoryLabel || data.category || 'General',
+        category_slug: data.categorySlug || 'general',
+        category_label: data.categoryLabel || 'General',
+        topic_slug: data.topicSlug || 'general-topic',
+        topic_label: data.topicLabel || 'General Topic',
+        author: data.author || 'EE General Curriculum Board',
+        file_size: data.fileSize || '4.8 MB PDF',
+        difficulty: data.difficulty || 'Introductory',
+        content_body: data.contentBody || '',
+      };
 
-      if (!res.ok) throw new Error(`Failed to ${isEdit ? 'update' : 'create'} resource`);
+      if (isEdit && targetId) {
+        const { error: updateError } = await supabase
+          .from('resources')
+          .update(payload)
+          .eq('id', targetId);
+
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('resources')
+          .insert([payload]);
+
+        if (insertError) throw insertError;
+      }
+
       setModalOpen(false);
       fetchResources();
     } catch (err: unknown) {
@@ -85,7 +131,7 @@ export default function AdminPage() {
         <div>
           <div className="text-xs font-mono text-stone-500 flex items-center gap-2 mb-1">
             <Database className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span>EEVOLUTION 2.0 ADMIN CONTROL PANEL</span>
+            <span>EEVOLUTION 2.0 ADMIN CONTROL PANEL (SUPABASE POSTGRESQL)</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-black dark:text-white">
             Resource Archive &amp; Telemetry Manager
@@ -114,13 +160,13 @@ export default function AdminPage() {
       {/* Main Content Area */}
       {loading ? (
         <div className="p-12 text-center font-mono text-xs text-stone-500 border border-dashed border-stone-300 dark:border-stone-800 rounded">
-          Syncing records with MongoDB server on port 5000...
+          Syncing records with Supabase PostgreSQL cloud database...
         </div>
       ) : error ? (
         <div className="p-8 border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 rounded font-mono text-xs space-y-2">
-          <p className="font-bold">DATABASE CONNECTIVITY ERROR:</p>
+          <p className="font-bold">SUPABASE CONNECTIVITY NOTICE:</p>
           <p>{error}</p>
-          <p className="text-stone-500">Ensure the Node.js Express Backend is running on port 5000.</p>
+          <p className="text-stone-500">Provide NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to connect.</p>
         </div>
       ) : resources.length === 0 ? (
         <div className="p-16 text-center border-2 border-dashed border-stone-300 dark:border-stone-800 rounded-lg space-y-4 font-mono">
@@ -128,7 +174,7 @@ export default function AdminPage() {
           <div className="space-y-1">
             <h3 className="text-base font-bold text-black dark:text-white">Nothing to Show</h3>
             <p className="text-xs text-stone-500 max-w-sm mx-auto">
-              There are currently no resource topics stored in the database archive. Click below to add your first technical topic.
+              There are currently no resource topics stored in the Supabase PostgreSQL database archive. Click below to add your first technical topic.
             </p>
           </div>
           <button
@@ -143,56 +189,53 @@ export default function AdminPage() {
         <div className="space-y-4 font-serif">
           <div className="flex items-center justify-between text-xs font-mono text-stone-500 border-b border-stone-200 dark:border-stone-800 pb-2">
             <span>DATABASE RECORDS: [{resources.length} TOPICS]</span>
-            <span>REST API: http://localhost:5000/api/resources</span>
+            <span>ENGINE: Supabase PostgreSQL (RLS Secured)</span>
           </div>
 
           <div className="divide-y divide-stone-200 dark:divide-stone-800 border border-stone-300 dark:border-stone-800 rounded bg-[#FCFCF9] dark:bg-[#161616]">
-            {resources.map((item) => {
-              const itemId = item._id || item.id;
-              return (
-                <div key={itemId} className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-stone-100 dark:hover:bg-stone-900 transition-colors">
-                  <div className="space-y-1 max-w-3xl">
-                    <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-stone-500">
-                      <span className="font-bold text-black dark:text-white">[{item.categoryLabel.toUpperCase()}]</span>
-                      <span>/</span>
-                      <span>{item.topicLabel}</span>
-                      <span>|</span>
-                      <span>Author: {item.author}</span>
-                    </div>
-
-                    <h3 className="text-base font-bold text-black dark:text-white">
-                      {item.title}
-                    </h3>
-
-                    <p className="text-xs text-stone-700 dark:text-stone-300 line-clamp-2 leading-relaxed">
-                      {item.description}
-                    </p>
-
-                    <div className="text-[11px] font-mono text-stone-500 pt-1">
-                      ObjectID: <span className="text-blue-900 dark:text-blue-400 font-bold">{itemId}</span>
-                    </div>
+            {resources.map((item) => (
+              <div key={item.id} className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-stone-100 dark:hover:bg-stone-900 transition-colors">
+                <div className="space-y-1 max-w-3xl">
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-stone-500">
+                    <span className="font-bold text-black dark:text-white">[{item.categoryLabel.toUpperCase()}]</span>
+                    <span>/</span>
+                    <span>{item.topicLabel}</span>
+                    <span>|</span>
+                    <span>Author: {item.author}</span>
                   </div>
 
-                  <div className="flex items-center gap-2 self-end md:self-center">
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="p-2 border border-stone-300 dark:border-stone-700 rounded hover:bg-stone-200 dark:hover:bg-stone-800 text-stone-800 dark:text-stone-200 flex items-center gap-1 font-mono text-xs"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      <span>Edit</span>
-                    </button>
+                  <h3 className="text-base font-bold text-black dark:text-white">
+                    {item.title}
+                  </h3>
 
-                    <button
-                      onClick={() => handleDelete(itemId)}
-                      className="p-2 border border-red-300 dark:border-red-900 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-950 flex items-center gap-1 font-mono text-xs"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
-                    </button>
+                  <p className="text-xs text-stone-700 dark:text-stone-300 line-clamp-2 leading-relaxed">
+                    {item.description}
+                  </p>
+
+                  <div className="text-[11px] font-mono text-stone-500 pt-1">
+                    UUID: <span className="text-blue-900 dark:text-blue-400 font-bold">{item.id}</span>
                   </div>
                 </div>
-              );
-            })}
+
+                <div className="flex items-center gap-2 self-end md:self-center">
+                  <button
+                    onClick={() => handleEdit(item)}
+                    className="p-2 border border-stone-300 dark:border-stone-700 rounded hover:bg-stone-200 dark:hover:bg-stone-800 text-stone-800 dark:text-stone-200 flex items-center gap-1 font-mono text-xs"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Edit</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="p-2 border border-red-300 dark:border-red-900 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-950 flex items-center gap-1 font-mono text-xs"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
