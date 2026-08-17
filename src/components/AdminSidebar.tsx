@@ -1,18 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   FileText,
   FolderGit2,
   BookOpen,
   Cpu,
   Bell,
+  Users,
   Database,
   ShieldAlert,
   ChevronRight,
 } from 'lucide-react';
 
-export type AdminTab = 'resources' | 'projects' | 'research' | 'software' | 'announcements';
+export type AdminTab = 'resources' | 'projects' | 'research' | 'software' | 'announcements' | 'users';
 
 interface SidebarProps {
   activeTab: AdminTab;
@@ -26,6 +27,7 @@ export default function AdminSidebar({ activeTab, setActiveTab }: SidebarProps) 
     { id: 'research', label: 'Peer Research Papers', icon: <BookOpen className="w-4 h-4" /> },
     { id: 'software', label: 'Software Utilities', icon: <Cpu className="w-4 h-4" /> },
     { id: 'announcements', label: 'Admin Bulletins', icon: <Bell className="w-4 h-4" /> },
+    { id: 'users', label: 'User & Role Management', icon: <Users className="w-4 h-4" /> },
   ];
 
   return (
