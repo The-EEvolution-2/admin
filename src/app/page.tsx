@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, RefreshCw, FolderPlus } from 'lucide-react';
 import AdminSidebar, { AdminTab } from '../components/AdminSidebar';
-import RichEditorialWindow from '../components/RichEditorialWindow';
+import DedicatedRichEditorialWindow from '../components/DedicatedRichEditorialWindow';
 import { supabase } from '../lib/supabaseClient';
 
 export default function AdminPage() {
@@ -93,8 +93,8 @@ export default function AdminPage() {
   const sectionTitles: Record<AdminTab, string> = {
     resources: 'Technical Resources & Specifications',
     projects: 'Engineering Projects & Repositories',
-    research: 'Peer-Reviewed Research Papers',
-    software: 'Software & Simulation Utilities',
+    research: 'Peer-Reviewed Research Papers (No Chapters)',
+    software: 'Software Utilities, Installer Links & Patch Notes',
     announcements: 'Admin Bulletins & System Notices',
   };
 
@@ -106,7 +106,8 @@ export default function AdminPage() {
       {/* Main Content Area */}
       <main className="flex-1 p-6 sm:p-10 overflow-y-auto">
         {viewMode === 'editor' ? (
-          <RichEditorialWindow
+          <DedicatedRichEditorialWindow
+            activeTab={activeTab}
             initialData={editingItem}
             onBack={() => setViewMode('list')}
             onSaveSuccess={handleSaveSuccess}
@@ -137,7 +138,7 @@ export default function AdminPage() {
                   className="flex items-center gap-2 px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-black font-mono text-xs font-bold rounded uppercase hover:opacity-90 transition-opacity"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Open Editorial Window</span>
+                  <span>Open {activeTab.slice(0, -1).toUpperCase()} Editorial Window</span>
                 </button>
               </div>
             </header>
@@ -157,7 +158,7 @@ export default function AdminPage() {
                 <div className="space-y-1">
                   <h3 className="text-base font-bold text-black dark:text-white">Nothing to Show</h3>
                   <p className="text-xs text-stone-500 max-w-sm mx-auto">
-                    No entries stored under {sectionTitles[activeTab]} yet. Click below to open the rich editorial window and publish to the website.
+                    No entries stored under {sectionTitles[activeTab]} yet. Click below to open the custom editorial window and publish to the website.
                   </p>
                 </div>
                 <button
@@ -165,7 +166,7 @@ export default function AdminPage() {
                   className="inline-flex items-center gap-2 px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-black text-xs font-bold rounded uppercase hover:opacity-90"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Open Editorial Window</span>
+                  <span>Open {activeTab.toUpperCase()} Editorial Window</span>
                 </button>
               </div>
             ) : (
@@ -180,7 +181,9 @@ export default function AdminPage() {
                     <div key={item.id} className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-stone-100 dark:hover:bg-stone-900 transition-colors">
                       <div className="space-y-1 max-w-3xl">
                         <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-stone-500">
-                          <span className="font-bold text-black dark:text-white">[{item.category_label || item.category || 'ENTRY'}]</span>
+                          <span className="font-bold text-black dark:text-white uppercase">
+                            [{item.project_type || item.tag || item.journal || item.version || item.category_label || item.category || 'ENTRY'}]
+                          </span>
                           {item.topic_label && <span>/ {item.topic_label}</span>}
                           {item.author && <span>| Author: {item.author}</span>}
                         </div>
