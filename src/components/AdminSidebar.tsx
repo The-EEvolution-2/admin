@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   FileText,
   FolderGit2,
@@ -29,7 +29,7 @@ export default function AdminSidebar({ activeTab, setActiveTab }: SidebarProps) 
   ];
 
   return (
-    <aside className="w-64 border-r border-stone-300 dark:border-stone-800 bg-[#F7F7F4] dark:bg-[#161616] p-4 flex flex-col justify-between font-serif min-h-screen">
+    <aside className="w-64 flex-shrink-0 h-screen sticky top-0 border-r border-stone-300 dark:border-stone-800 bg-[#F7F7F4] dark:bg-[#161616] p-4 flex flex-col justify-between font-serif z-30 overflow-y-auto">
       <div className="space-y-6">
         {/* Brand */}
         <div className="border-b border-stone-300 dark:border-stone-800 pb-4">
