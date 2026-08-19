@@ -18,17 +18,22 @@ export type AdminTab = 'resources' | 'projects' | 'research' | 'software' | 'ann
 interface SidebarProps {
   activeTab: AdminTab;
   setActiveTab: (tab: AdminTab) => void;
+  userEmail?: string | null;
 }
 
-export default function AdminSidebar({ activeTab, setActiveTab }: SidebarProps) {
-  const menuItems: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
+export default function AdminSidebar({ activeTab, setActiveTab, userEmail }: SidebarProps) {
+  const isSuperadminDeveloper = userEmail?.toLowerCase().trim() === 'jcsayan7@gmail.com';
+
+  const menuItems: { id: AdminTab; label: string; icon: React.ReactNode; superadminOnly?: boolean }[] = [
     { id: 'resources', label: 'Resources Archive', icon: <FileText className="w-4 h-4" /> },
     { id: 'projects', label: 'Engineering Projects', icon: <FolderGit2 className="w-4 h-4" /> },
     { id: 'research', label: 'Peer Research Papers', icon: <BookOpen className="w-4 h-4" /> },
     { id: 'software', label: 'Software Utilities', icon: <Cpu className="w-4 h-4" /> },
     { id: 'announcements', label: 'Admin Bulletins', icon: <Bell className="w-4 h-4" /> },
-    { id: 'users', label: 'User & Role Management', icon: <Users className="w-4 h-4" /> },
+    { id: 'users', label: 'User & Role Management', icon: <Users className="w-4 h-4" />, superadminOnly: true },
   ];
+
+  const visibleMenuItems = menuItems.filter(item => !item.superadminOnly || isSuperadminDeveloper);
 
   return (
     <aside className="w-64 flex-shrink-0 h-screen sticky top-0 border-r border-stone-300 dark:border-stone-800 bg-[#F7F7F4] dark:bg-[#161616] p-4 flex flex-col justify-between font-serif z-30 overflow-y-auto">
@@ -49,7 +54,7 @@ export default function AdminSidebar({ activeTab, setActiveTab }: SidebarProps) 
           <div className="text-[10px] text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-2 px-2">
             DATABASE SECTIONS
           </div>
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button

@@ -199,10 +199,12 @@ export default function AdminPage() {
     users: 'User & Role Access Management (Superadmin Only)',
   };
 
+  const isSuperadminDeveloper = userEmail?.toLowerCase().trim() === 'jcsayan7@gmail.com';
+
   return (
     <div className="flex min-h-screen bg-[#FCFCF9] dark:bg-[#121212] text-stone-900 dark:text-stone-100 font-sans">
       {/* Sidebar with Navigation Options */}
-      <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} userEmail={userEmail} />
 
       {/* Main Content Area */}
       <main className="flex-1 p-6 sm:p-10 overflow-y-auto">
@@ -268,47 +270,52 @@ export default function AdminPage() {
                 <p>{error}</p>
               </div>
             ) : activeTab === 'users' ? (
-              /* DEDICATED USERS MANAGEMENT TABLE */
-              <div className="space-y-4 font-sans">
-                <div className="flex items-center justify-between text-xs font-mono text-stone-500 border-b border-stone-200 dark:border-stone-800 pb-2">
-                  <span>REGISTERED USERS: [{records.length} USERS]</span>
-                  <span>ROLES: SUPERADMIN / FACULTY / STUDENT ADMIN / EDITOR</span>
+              /* DEDICATED USERS MANAGEMENT TABLE (EXCLUSIVELY FOR SUPERADMIN DEVELOPER jcsayan7@gmail.com) */
+              !isSuperadminDeveloper ? (
+                <div className="p-12 text-center border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/60 rounded text-red-700 dark:text-red-300 font-mono text-xs space-y-2">
+                  <p className="font-bold uppercase">[ ACCESS RESTRICTED ]</p>
+                  <p>User &amp; Role Access Management is strictly restricted to Superadmin Developer (jcsayan7@gmail.com).</p>
                 </div>
+              ) : (
+                <div className="space-y-4 font-sans">
+                  <div className="flex items-center justify-between text-xs font-mono text-stone-500 border-b border-stone-200 dark:border-stone-800 pb-2">
+                    <span>REGISTERED USERS: [{records.length} USERS]</span>
+                    <span>ROLES: SUPERADMIN / FACULTY / STUDENT ADMIN / EDITOR</span>
+                  </div>
 
-                <div className="divide-y divide-stone-200 dark:divide-stone-800 border border-stone-300 dark:border-stone-800 rounded bg-[#FCFCF9] dark:bg-[#161616]">
-                  {records.length === 0 ? (
-                    <div className="p-12 text-center text-xs font-mono text-stone-500">
-                      No user profiles registered yet. Users will appear here after signing in.
-                    </div>
-                  ) : (
-                    records.map((user) => (
-                      <div
-                        key={user.id}
-                        className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-stone-100 dark:hover:bg-stone-900 transition-colors"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 font-mono text-xs">
-                            <span className="font-bold text-black dark:text-white">
-                              {user.full_name || 'Anonymous User'}
-                            </span>
-                            <span className="text-stone-400">({user.email || 'No Email'})</span>
+                  <div className="divide-y divide-stone-200 dark:divide-stone-800 border border-stone-300 dark:border-stone-800 rounded bg-[#FCFCF9] dark:bg-[#161616]">
+                    {records.length === 0 ? (
+                      <div className="p-12 text-center text-xs font-mono text-stone-500">
+                        No user profiles registered yet. Users will appear here after signing in.
+                      </div>
+                    ) : (
+                      records.map((user) => (
+                        <div
+                          key={user.id}
+                          className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-stone-100 dark:hover:bg-stone-900 transition-colors"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 font-mono text-xs">
+                              <span className="font-bold text-black dark:text-white">
+                                {user.full_name || 'Anonymous User'}
+                              </span>
+                              <span className="text-stone-400">({user.email || 'No Email'})</span>
+                            </div>
+
+                            <div className="text-xs text-stone-600 dark:text-stone-400 font-mono flex flex-wrap gap-3">
+                              <span>Role: <strong className="uppercase text-blue-900 dark:text-blue-400">{user.role || 'normal'}</strong></span>
+                              {user.is_admin && <span className="font-bold text-emerald-600 dark:text-emerald-400">[ADMIN ACCESS ENABLED]</span>}
+                              {user.roll_number && <span>Roll: {user.roll_number}</span>}
+                              {user.batch_year && <span>Batch: {user.batch_year} (Group {user.batch_group || '1'})</span>}
+                              {user.mobile_no && <span>Mobile: {user.mobile_no}</span>}
+                            </div>
+
+                            <div className="text-[11px] font-mono text-stone-500">
+                              UUID: {user.id}
+                            </div>
                           </div>
 
-                          <div className="text-xs text-stone-600 dark:text-stone-400 font-mono flex flex-wrap gap-3">
-                            <span>Role: <strong className="uppercase text-blue-900 dark:text-blue-400">{user.role || 'normal'}</strong></span>
-                            {user.is_admin && <span className="font-bold text-emerald-600 dark:text-emerald-400">[ADMIN ACCESS ENABLED]</span>}
-                            {user.roll_number && <span>Roll: {user.roll_number}</span>}
-                            {user.batch_year && <span>Batch: {user.batch_year} (Group {user.batch_group || '1'})</span>}
-                            {user.mobile_no && <span>Mobile: {user.mobile_no}</span>}
-                          </div>
-
-                          <div className="text-[11px] font-mono text-stone-500">
-                            UUID: {user.id}
-                          </div>
-                        </div>
-
-                        {/* Role & Admin Toggle Selectors (Superadmin Only) */}
-                        {userRole === 'superadmin' || userRole === 'admin' ? (
+                          {/* Role & Admin Toggle Selectors (Superadmin Developer Only) */}
                           <div className="flex flex-wrap items-center gap-3 self-end md:self-center font-mono text-xs">
                             <button
                               onClick={() => handleUserAdminToggle(user.id, user.is_admin || false)}
@@ -337,16 +344,12 @@ export default function AdminPage() {
                               </select>
                             </div>
                           </div>
-                        ) : (
-                          <div className="text-xs font-mono text-stone-400 italic">
-                            [Role editing requires Superadmin]
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
+              )
             ) : records.length === 0 ? (
               <div className="p-16 text-center border-2 border-dashed border-stone-300 dark:border-stone-800 rounded-lg space-y-4 font-mono">
                 <FolderPlus className="w-10 h-10 mx-auto text-stone-400" />
